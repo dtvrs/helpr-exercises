@@ -14,3 +14,13 @@
 Route::get('/', function () {
     return view('welcome');
 });
+
+Auth::routes();
+
+Route::get('/home', 'HomeController@index');
+
+Route::get('/registration-success', [
+    'middleware'    => 'guest',
+    'uses'          => 'Auth\RegisterController@registrationSuccess',
+    'as'            => 'registration.success',
+]);

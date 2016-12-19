@@ -2,10 +2,18 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\User;
 use Validator;
+
+use App\User;
+use App\Company;
+
+use App\Events\UserRegistered;
+
 use App\Http\Controllers\Controller;
+
 use Illuminate\Foundation\Auth\RegistersUsers;
+
+use Illuminate\Http\Request;
 
 class RegisterController extends Controller
 {
@@ -27,7 +35,7 @@ class RegisterController extends Controller
      *
      * @var string
      */
-    protected $redirectTo = '/home';
+    protected $redirectTo = '/registration-success';
 
     /**
      * Create a new controller instance.
@@ -48,9 +56,10 @@ class RegisterController extends Controller
     protected function validator(array $data)
     {
         return Validator::make($data, [
-            'name' => 'required|max:255',
-            'email' => 'required|email|max:255|unique:users',
-            'password' => 'required|min:6|confirmed',
+            'name'      => 'required|max:255',
+            'email'     => 'required|email|max:255|unique:users',
+            'password'  => 'required|min:7|confirmed',
+            'company'   => 'required|string|exists:companies,slug',
         ]);
     }
 
@@ -62,10 +71,44 @@ class RegisterController extends Controller
      */
     protected function create(array $data)
     {
-        return User::create([
+        $company    = Company::where('slug', $data['company'])->first();
+
+        $user       = new User([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => bcrypt($data['password']),
         ]);
+
+        $user->company()->associate($company)->save();
+
+        event(new UserRegistered($user, $data['password']));
+
+        return $user;
+    }
+
+    /**
+     * Handle a registration request for the application.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function register(Request $request)
+    {
+        $validator = $this->validator($request->all());
+
+        if ($validator->fails()) {
+            $this->throwValidationException(
+                $request, $validator
+            );
+        }
+
+        $user = $this->create($request->all());
+
+        return redirect($this->redirectPath());
+    }
+
+    public function registrationSuccess()
+    {
+        return view('auth.registration-success');
     }
 }
